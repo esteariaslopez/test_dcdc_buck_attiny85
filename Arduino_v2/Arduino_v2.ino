@@ -22,7 +22,18 @@
 #include <Wire.h>
 #include <math.h>
 
+void changeLightFrequency();
+void checkSensors();
+
 //variables
+
+enum sensorsEnum {
+  pirS, microphoneS, camaraS, temperatureS, ligthS
+};
+
+enum actuatorsEnum {
+  lightA, soundA, motorA
+};
 
 //regulator
 byte light = "g";
@@ -32,6 +43,13 @@ byte c = 0;
 byte c1 = 0;
 char Device = 8; //device to hear in i2c bus
 bool State;
+
+//---sensors---
+// check states of this types of sensors:  pirS, microphoneS, camaraS, temperatureS, ligthS
+int sensorTypes = 5;
+bool sensorsCheck[] = {true,false,false,false,false};
+int sensorsDevices[5][10];//first value in each rows holds the total devices
+//actuators
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network.
@@ -47,7 +65,6 @@ IPAddress subnet(255, 255, 0, 0);
 // telnet defaults to port 23
 EthernetServer server(23);
 boolean alreadyConnected = false; // whether or not the client was connected previously
-boolean ledState = false;
 void setup() {
 
   Wire.begin(); // join i2c bus (address optional for master)
@@ -61,8 +78,6 @@ void setup() {
 
   Serial.print("Chat server address:");
   Serial.println(Ethernet.localIP());
-  pinMode(A1, OUTPUT);
-  ledState = false;
 }
 
 void loop() {
@@ -71,13 +86,7 @@ void loop() {
   
   //wait for message over ethernet
   EthernetClient client = server.available();
-  if(ledState)
-  {
-    digitalWrite(A1, HIGH);
-    }else
-    {
-       digitalWrite(A1, LOW);
-      }
+ 
   
   // when the client sends the first byte, say hello:
   if (client) {
@@ -86,9 +95,8 @@ void loop() {
       // clead out the input buffer:
       client.flush();
       Serial.println("We have a new client");
-      client.println("Hello, client!");
+      client.println("Hello, client!"); //------use this to send messages
       alreadyConnected = true;
-      ledState = true;
     }
 
     if (client.available() > 0) {
@@ -98,50 +106,55 @@ void loop() {
       // echo the bytes back to the client:
       server.write(thisChar);
       // echo the bytes to the server as well:
-      Serial.write(thisChar);
-      if(thisChar == 'n')
-      {
-        ledState = true;
-        //digitalWrite(LED_BUILTIN, HIGH);
-        Serial.println("-on-");
-      }else if (thisChar == 'f')
-      {
-        ledState = false;
-        //digitalWrite(LED_BUILTIN, LOW);
-        Serial.println("-off-");
-      } else {
         light = thisChar;
         changeLightFrequency();
-        Serial.println("-changed-");
-      }
-        
-      
     
+    }
+    
+    }
+
+
+  //sensor i2c channel check
+  checkSensors();
+  int wireMessage = Wire.available();
+    if(wireMessage > 1)
+    {
+      char indexSensorTypeChar = Wire.read();
+      int indexSensorType = indexSensorTypeChar - 48;//convert char to and adjust value.
+      char sensorValueChar = Wire.read();
+      //TODO if there is a message do proper actions
+      switch(indexSensorType)
+      {
+        case pirS:
+          Serial.println("pir sensor");
+          //TODO insert code for put request instead of this
+          if (sensorValueChar == '1')
+          {
+            //turn on light 
+            light = "f";
+            changeLightFrequency();
+            Serial.println("turn on");
+        
+            }else
+            {
+              //turn on light 
+               light = "l";
+               changeLightFrequency();
+               Serial.println("turn off");
+            }                    
+         break;
+         case microphoneS:                  
+         break;
+         default: 
+          Serial.println("no sensor data change");
+          break;
+      }
+    }
+
+  }
   
-    }
-    
-    }
+      
 
-   //i2c master reader
-      Wire.requestFrom(Device, 1);    // request 1 bytes from slave device #8
-
-       while (Wire.available()) { // slave may send less than requested
-      State = Wire.read(); // receive a byte as character
-      if (State == true){
-        Serial.println("TRUE");
-
-        //turn on light 
-        light = "f";
-        changeLightFrequency();
-        
-        }else{
-          Serial.println("FALSE");
-          //turn on light 
-           light = "l";
-           changeLightFrequency();
-          }         // print the character
-      }
-}
 
 void changeLightFrequency()
 {
@@ -160,6 +173,13 @@ void changeLightFrequency()
     //Serial.println(c1);
  }
 }
+void checkSensors()
+{
+  //TODO logic to validate wich devices and sensors to check
+  //for testing only pir sensor will be implemented
+   Wire.requestFrom(Device, 2);    // request 2 bytes from slave device #8
+}
+
   
   
 
